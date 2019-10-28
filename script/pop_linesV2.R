@@ -92,7 +92,7 @@ r <-
 # to data.table format
 # This can be a very long process without the helper function
 r_dt <-
-  as.data.table(r, xy = T, na.rm = T)
+  as.data.table.raster(r, xy = T, na.rm = T)
 
 # warning: if your datatable has too many rows you wont be able to plot
 # I'm not sure the limit, but around 70,000 rows makes a really detailed end plot

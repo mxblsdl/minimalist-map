@@ -4,3 +4,5 @@ data/
 .Rhistory
 images
 images/
+.Rproj.user
+*.png
