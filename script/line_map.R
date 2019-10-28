@@ -57,17 +57,6 @@ output_name <- "ca_population"
 poly <-
   read_sf("data/ca/ca_no_islands.shp")
 
-# I made some other plots with my home state VT
-# poly <-
-#   read_sf("data/states_21basic/states.shp")
-# 
-# vt <-
-#   poly %>%
-#     filter(STATE_NAME == "Vermont")
-
-# county data
-# counties <- read_sf("../../../GIS data/base_layers/ca_counties.gpkg")
-
 # project state to raster
 # raster data can be in any projection for this process
 poly <-
@@ -89,7 +78,7 @@ r <-
 r_dt <-
   as.data.table.raster(r, xy = T, na.rm = T)
 
-# warning: if your datatable has too many rows you wont be able to plot
+# WARNING: if your datatable has too many rows you wont be able to plot
 # I'm not sure the limit, but around 70,000 rows makes a really detailed end plot
 # Anything more than this wont really look good
 # This all depends on the input raster
