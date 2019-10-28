@@ -1,5 +1,5 @@
 data/
-.Rproj
+*.Rproj
 .Rdata
 .Rhistory
 images

@@ -10,15 +10,10 @@
 library(dplyr) # data manipulation
 library(raster) # read raster data
 library(ggplot2) # graphing 
-library(rgdal) # additional spatial functions
 library(sf) # read polygons
 
 # Stop numbers from rendering as scientific notation
 options(scipen = 10)
-
-# for checking EPSG syntax
-# helpful if data needs to be reprojected
-epsg <- make_EPSG()
 
 # helper functions
 # get a percentage range of vector
@@ -47,7 +42,7 @@ as.data.table.raster <- function(x, row.names = NULL, optional = FALSE, xy=FALSE
   v
 }
 
-# load raster
+# load raster from given directory
 r <- dir("data", full.names = T, pattern = ".tif$")
 
 # I have multiple tif files in my data directory
