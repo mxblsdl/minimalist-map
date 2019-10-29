@@ -1,6 +1,6 @@
 # Create Minimalist Line Maps
 + [Main Objective](#Purpose)
-+ [Requirements](#Requirements:)
++ [Requirements](#Requirements)
 + [Libraries](#Libraries-needed)
 + [Resources](#Resource)
 + [Known issues](#Issues)
@@ -15,7 +15,7 @@ To make sylistic maps from any raster data input in reproducable and understanda
 ***
 All work is done with R statistical software
 
-### Requirements:
+### Requirements
 + Raster data of something
 + Shapefile of area of interest
 + R software
