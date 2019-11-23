@@ -11,15 +11,12 @@ library(dplyr) # data manipulation
 library(raster) # read raster data
 library(ggplot2) # graphing 
 library(sf) # read polygons
+library(ggridges) # achieves ridges look to data
+library(grid) # extra background plotting function
+library(RColorBrewer) # not needed but nice to play with 
 
 # Stop numbers from rendering as scientific notation
 options(scipen = 10)
-
-# helper functions
-# get a percentage range of vector
-range <- function(x) {
-  (x - min(x)) / (max(x) - min(x))
-  }
 
 # faster raster to dt function
 # Comes from https://gist.github.com/etiennebr/9515738
@@ -37,110 +34,149 @@ as.data.table.raster <- function(x, row.names = NULL, optional = FALSE, xy=FALSE
     v <- rbindlist(l)
   }
   coln <- names(x)
-  if(xy) coln <- c("x", "y", coln)
-  setnames(v, coln)
+  #if(xy) coln <- c("x", "y", coln)
+  #setnames(v, coln)
   v
 }
 
+# background gridient function
+# From: https://stackoverflow.com/questions/30136725/plot-background-colour-in-gradient
+make_gradient <- function(deg = 45, n = 100, cols = blues9) {
+  cols <- colorRampPalette(cols)(n + 1)
+  rad <- deg / (180 / pi)
+  mat <- matrix(
+    data = rep(seq(0, 1, length.out = n) * cos(rad), n),
+    byrow = TRUE,
+    ncol = n
+  ) +
+    matrix(
+      data = rep(seq(0, 1, length.out = n) * sin(rad), n),
+      byrow = FALSE,
+      ncol = n
+    )
+  mat <- mat - min(mat)
+  mat <- mat / max(mat)
+  mat <- 1 + mat * n
+  mat <- matrix(data = cols[round(mat)], ncol = n)
+  grid::rasterGrob(
+    image = mat,
+    width = unit(1, "npc"),
+    height = unit(1, "npc"), 
+    interpolate = TRUE
+  )
+}
+### Set output name
+# name = "Oregon"
+name = "India"
+
 # load raster from given directory
+# Data comes from https://sedac.ciesin.columbia.edu/data/set/gpw-v4-population-density-rev11
 r <- dir("data", full.names = T, pattern = ".tif$")
 
+# list available data
+r
+
 # I have multiple tif files in my data directory
+# select correct one
 r <-
   raster(r[2])
 
-# set a descriptive file name for output
-output_name <- "ca_population"
+# various permutations
+# elevation
+# r <- raster("../../Fun_work/elevation_maps/raster_data/elevation_wgs.tif")
 
-# I made a shp file of CA without the Santa Cruz islands
-# Islands cause problems with these plots
+# select shapefile to clip data to
+# STATES
+# poly <-
+#    read_sf("data/states_21basic/states.shp") %>%
+#     filter(STATE_NAME == name)
+# 
+# # OR COUNTIES
+# urban <-
+#   read_sf("../../GIS data/or_counties/counties.shp") %>%
+#   dplyr::filter(COUNTY == '051')
+# 
+# # Portland city limits
+# poly <-
+#   read_sf("../../GIS data/pdx_City_Boundaries/City_Boundaries.shp") %>%
+#   filter(CITYNAME == "Portland")
+
+# India
 poly <-
-  read_sf("data/ca/ca_no_islands.shp")
+  read_sf("../../GIS data/India_SHP/INDIA.shp")
 
-# project state to raster
 # raster data can be in any projection for this process
+# project shapefile to raster, much faster than projecting the raster
 poly <-
   st_transform(poly, crs = crs(r))
 
 # crop and mask to area of interest
-r <-
-  crop(r, poly)
-r <- 
-  mask(r, poly)
+r <- crop(r, poly)
+r <- mask(r, poly)
 
-# averaging values to smooth graph
-# important for large rasters as the next step is memory heavy
-r <-
-  aggregate(r, fact = 8, fun = mean, na.rm = T)
+# This step will vary depending on the size of the project and resolution of the input data
+while(length(r) > 100000) { # some arbitrary limit
+  # averaging values to smooth graph
+
+  # warning: if your datatable has too many rows you wont be able to plot
+  # I'm not sure the limit, but around 70,000 rows makes a really detailed end plot
+  # Anything more than this wont really look good
+  # This all depends on the input raster
+    r <- aggregate(r, fact = 2, fun = mean, na.rm = T)
+}
 
 # to data.table format
 # This can be a very long process without the helper function
 r_dt <-
-  as.data.table.raster(r, xy = T, na.rm = T)
-
-# WARNING: if your datatable has too many rows you wont be able to plot
-# I'm not sure the limit, but around 70,000 rows makes a really detailed end plot
-# Anything more than this wont really look good
-# This all depends on the input raster
+  as.data.table.raster(r, xy = T, na.rm = F)
 
 # Name columns
+r_dt <- r_dt[,1:3]
 names(r_dt) <- c("x", "y", "value")
 
-# Rescale the values and calculate the x/y ranges 
-# This is to ensure that you can see the variation in the data
-r_dt$value_st<-range(r_dt$value) * 0.1 # play with this number if you want
-r_dt$x_st<-range(r_dt$x)
-r_dt$y_st<-range(r_dt$y)
+# optionally set the highest points a different color
+high_points <- copy(r_dt)
+high_points[, value := ifelse(value > 6200, value, NaN)]
 
-# create graphing object
-values_s <- r_dt
+# create a background color scheme to match the flag of India
+g <- make_gradient(
+  deg = 90, n = 1000, cols = c("#ff9b30", "white", "#0a8902")
+)
 
-# get values to run loop over
-k <-
-  unique(values_s$y_st)
+#### ggridges method
+fill = "#F8F8FF" # background color
+line_col = "#333230" # color of ridge lines
 
-# High values on the edges of the raster can cause odd polygon rendering 
-# This step fixes a lot of headaches and abnormalities at the cost of some data
-# zero out the edges
-values_s <-
-  values_s %>%
-  group_by(y_st) %>%
-  mutate(value_st = if_else(row_number() == 1, 0, value_st), # set first and last of each row to zero
-         value_st = if_else(row_number() == n(), 0, value_st))
+ggplot(r_dt, aes(x = x, 
+                 y = y,
+                 group = y,
+                 height = value)) +
+  # add in the background colors
+  annotation_custom(g, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) + 
+    geom_density_ridges(stat = "identity", 
+                      scale = 25, # intensity of spikes
+                      fill = fill,
+                      color = line_col) +
+  # Secondary highlights disabled for now
+  # geom_density_ridges(data = high_points, aes(x = x, 
+  #                                             y = y,
+  #                                             group = y,
+  #                                             height = value),
+  #                     stat = "identity",
+  #                     color = c("#FFF68F"),
+  #                     fill = NA,
+  #                     scale = 15,
+  #                     lwd = 1) +
+  theme_void() + # drop all axes, lines, etc...
+  theme(panel.background = element_rect(fill= fill,
+                                        colour= fill),
+        plot.background = element_rect(fill = fill,
+                                       colour = fill)) +
+  coord_cartesian()
+ 
 
-# call an empty ggplot
-p <- ggplot()
-
-# loop over each line of latitude adding a white polygon based on population
-for(i in k) {
-    p <- p + geom_polygon(data = values_s[values_s$y_st == i,],
-                        aes(x_st, value_st + y_st, group = y_st),
-                        size = 0.1,
-                        fill = "white", # these are the base colors
-                         col = "white"
-                        ) + 
-      # trace each polygon with a line that shows the changes in value
-      geom_path(data = values_s[values_s$y_st == i,],
-                aes(x_st, value_st + y_st, group = y_st),
-                size = .3,
-                lineend = "round",
-                linejoin = "round")
-    # different colors can be used here
-}
-
-#Switch off various ggplot things
-quiet <- list(scale_x_continuous("", breaks = NULL),
-              scale_y_continuous("", breaks = NULL))
-
-# plot with plain white background
-# worth plotting without theme to understand what is happening with the graphics
-p + theme(panel.background = element_rect(fill='white',
-                                          colour='white')) + quiet
-
-
-# save outptu
-# ggsave(filename = paste0(output_name, ".png"), 
-#        dpi = 500, # keep high quality dpi
-#        height = 12,# may have to change to get proportions correct
-#        width = 10)
-
+## output file
+ggsave(paste0(name, ".png"),
+     dpi = 600, # always keep a high dots per inch
+    height = 6, # may need to change based on image
+   width = 8)

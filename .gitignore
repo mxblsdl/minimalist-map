@@ -4,3 +4,4 @@ data/
 .Rhistory
 .Rproj.user
 output
+*.png
