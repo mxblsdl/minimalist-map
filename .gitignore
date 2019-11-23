@@ -3,6 +3,6 @@ data/
 .Rdata
 .Rhistory
 .Rproj.user
-output
-*.png
+output/
+.png
 .DS_Store
