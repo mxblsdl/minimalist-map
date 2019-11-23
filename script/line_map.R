@@ -11,15 +11,10 @@ library(dplyr) # data manipulation
 library(raster) # read raster data
 library(ggplot2) # graphing 
 library(sf) # read polygons
+library(ggridges)
 
 # Stop numbers from rendering as scientific notation
 options(scipen = 10)
-
-# helper functions
-# get a percentage range of vector
-range <- function(x) {
-  (x - min(x)) / (max(x) - min(x))
-  }
 
 # faster raster to dt function
 # Comes from https://gist.github.com/etiennebr/9515738
@@ -37,57 +32,75 @@ as.data.table.raster <- function(x, row.names = NULL, optional = FALSE, xy=FALSE
     v <- rbindlist(l)
   }
   coln <- names(x)
-  if(xy) coln <- c("x", "y", coln)
-  setnames(v, coln)
+  #if(xy) coln <- c("x", "y", coln)
+  #setnames(v, coln)
   v
 }
 
+
+### Set State Name
+name = "Oregon"
+
 # load raster from given directory
 r <- dir("data", full.names = T, pattern = ".tif$")
+
+# list available data
+r
 
 # I have multiple tif files in my data directory
 r <-
   raster(r[2])
 
-# set a descriptive file name for output
-output_name <- "ca_population"
+# elevation
+r <- raster("../../Fun_work/elevation_maps/raster_data/elevation_wgs.tif")
 
-# I made a shp file of CA without the Santa Cruz islands
-# Islands cause problems with these plots
+# select shapefile to clip data to
+
+# STATES
 poly <-
-  read_sf("data/ca/ca_no_islands.shp")
+   read_sf("data/states_21basic/states.shp") %>%
+    filter(STATE_NAME == name)
 
-# I made some other plots with my home state VT
-# poly <-
-#   read_sf("data/states_21basic/states.shp")
-# 
-# vt <-
-#   poly %>%
-#     filter(STATE_NAME == "Vermont")
+# OR COUNTIES
+urban <-
+  read_sf("../../GIS data/or_counties/counties.shp") %>%
+  dplyr::filter(COUNTY == '051')
 
-# county data
-# counties <- read_sf("../../../GIS data/base_layers/ca_counties.gpkg")
+# Portland city limits
+poly <-
+  read_sf("../../GIS data/pdx_City_Boundaries/City_Boundaries.shp") %>%
+  filter(CITYNAME == "Portland")
 
-# project state to raster
+# India
+poly <-
+  read_sf("../../GIS data/India_SHP/INDIA.shp")
+
 # raster data can be in any projection for this process
 poly <-
   st_transform(poly, crs = crs(r))
 
+# poly <-
+#   st_buffer(poly, dist = 0.001, endCapStyle = "FLAT")
+plot(poly)
+plot(r)
 # crop and mask to area of interest
-r <-
-  crop(r, poly)
-r <- 
-  mask(r, poly)
+r <- crop(r, poly)
+r <- mask(r, poly)
 
-# averaging values to smooth graph
-# important for large rasters as the next step is memory heavy
-r <-
-  aggregate(r, fact = 8, fun = mean, na.rm = T)
+# levels(r)[[1]] <- NULL
+
+if(length(r) > 100000) {
+  # averaging values to smooth graph
+  # important for large rasters as the next step is memory heavy
+  r <- aggregate(r, fact = 2, fun = mean, na.rm = T)
+}
+if(length(r) > 100000) {r <- aggregate(r, fact = 2, fun = mean, na.rm = T)}
+if(length(r) > 100000) {r <- aggregate(r, fact = 2, fun = mean, na.rm = T)}
 
 # to data.table format
 # This can be a very long process without the helper function
 r_dt <-
-  as.data.table.raster(r, xy = T, na.rm = T)
+  as.data.table.raster(r, xy = T, na.rm = F)
 
 # warning: if your datatable has too many rows you wont be able to plot
 # I'm not sure the limit, but around 70,000 rows makes a really detailed end plot
@@ -95,63 +108,51 @@ r_dt <-
 # This all depends on the input raster
 
 # Name columns
+r_dt <- r_dt[,1:3]
 names(r_dt) <- c("x", "y", "value")
 
-# Rescale the values and calculate the x/y ranges 
-# This is to ensure that you can see the variation in the data
-r_dt$value_st<-range(r_dt$value) * 0.1 # play with this number if you want
-r_dt$x_st<-range(r_dt$x)
-r_dt$y_st<-range(r_dt$y)
+summary(r_dt$value)
 
-# create graphing object
-values_s <- r_dt
+r_dt %>%
+  filter(value > 6200) %>%
+  nrow()
 
-# get values to run loop over
-k <-
-  unique(values_s$y_st)
+high_points <- copy(r_dt)
 
-# High values on the edges of the raster can cause odd polygon rendering 
-# This step fixes a lot of headaches and abnormalities at the cost of some data
-# zero out the edges
-values_s <-
-  values_s %>%
-  group_by(y_st) %>%
-  mutate(value_st = if_else(row_number() == 1, 0, value_st), # set first and last of each row to zero
-         value_st = if_else(row_number() == n(), 0, value_st))
+high_points[, value := ifelse(value > 6200, value, NaN)]
 
-# call an empty ggplot
-p <- ggplot()
+#### ggridges method testing
+fill = "#8B8989"
 
-# loop over each line of latitude adding a white polygon based on population
-for(i in k) {
-    p <- p + geom_polygon(data = values_s[values_s$y_st == i,],
-                        aes(x_st, value_st + y_st, group = y_st),
-                        size = 0.1,
-                        fill = "white", # these are the base colors
-                         col = "white"
-                        ) + 
-      # trace each polygon with a line that shows the changes in value
-      geom_path(data = values_s[values_s$y_st == i,],
-                aes(x_st, value_st + y_st, group = y_st),
-                size = .3,
-                lineend = "round",
-                linejoin = "round")
-    # different colors can be used here
-}
+fill = "#F8F8FF"
+line_col = "#333230"
 
-#Switch off various ggplot things
-quiet <- list(scale_x_continuous("", breaks = NULL),
-              scale_y_continuous("", breaks = NULL))
-
-# plot with plain white background
-# worth plotting without theme to understand what is happening with the graphics
-p + theme(panel.background = element_rect(fill='white',
-                                          colour='white')) + quiet
-
-
-# save outptu
-# ggsave(filename = paste0(output_name, ".png"), 
-#        dpi = 500, # keep high quality dpi
-#        height = 12,# may have to change to get proportions correct
-#        width = 10)
-
+ggplot(r_dt, aes(x = x, 
+                 y = y,
+                 group = y,
+                 height = value)) +
+    geom_density_ridges(stat = "identity", 
+                      scale = 25, # intensity of spikes
+                      fill = fill,
+                      color = line_col) +
+  # geom_density_ridges(data = high_points, aes(x = x,
+  #                                             y = y,
+  #                                             group = y,
+  #                                             height = value),
+  #                     stat = "identity",
+  #                     color = c("#FFF68F"),
+  #                     fill = NA,
+  #                     scale = 15,
+  #                     lwd = 1) +
+  theme_void() +
+  theme(panel.background = element_rect(fill= fill,
+                                        colour= fill),
+        plot.background = element_rect(fill = fill,
+                                       colour = fill)) +
+  coord_cartesian(clip = "off")
+ 
+name = "India"
+ggsave(paste0(name, ".png"),
+     dpi = 600,
+    height = 6,
+   width = 8)
