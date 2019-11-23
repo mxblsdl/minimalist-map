@@ -4,8 +4,9 @@
 + [Libraries](#Libraries-needed)
 + [Resources](#Resource)
 
-![pop-density](images/india.png)
+![pop-density](images/India.png)
 
+*Population Density of India* 
 
 ![basal-area](images/ca_basal_area.png)
 *Above Map Shows Biomass of CA*
