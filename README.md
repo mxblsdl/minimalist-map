@@ -26,12 +26,14 @@ All work is done with R statistical software
 
     library(dplyr) # data manipulation
     library(raster) # read raster data
-    library(sf) # read polygons
     library(ggplot2) # graphing 
-    library(data.table) # for raster manipulation
-
+    library(sf) # read polygons
+    library(ggridges) # achieves ridges look to data
+    library(grid) # extra background plotting function
+    library(RColorBrewer) # not needed but nice to play with 
 
 This script can be used to make a map similar to the one above with any input raster. 
+Added functionality to make a gradient raster in teh background.
 
 ### Resources
 
@@ -39,10 +41,4 @@ This workflow is inspired by a blogs postsI found while researching the excellen
 
 This lead me to another [useful blog](https://www.whackdata.com/2014/08/04/line-graphs-parallel-processing-r/) post about line maps.
 
-### Issues
-
-There is a known issue that the maps come out odd when there are disconnected lines of latitude. Imagine Washington State with Puget Sound. This workflow would connect the Olympic Peninsula to the Seattle area and the water of Puget Sound would appear to be land with low values.
-
- California works well for these maps as it is a single block, similar to a rectangular column. 
-
-I am currently working on this and if anyone finds a fix please share.
+The [ggridges](https://cran.r-project.org/web/packages/ggridges/vignettes/gallery.html) library was also very useful as it cleans up the workflow and plotting functionality considerably. 
