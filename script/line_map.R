@@ -178,5 +178,5 @@ ggplot(r_dt, aes(x = x,
 ## output file
 ggsave(paste0(name, ".png"),
      dpi = 600, # always keep a high dots per inch
-    height = 6, # may need to change based on image
+    height = 8, # may need to change based on image
    width = 8)
