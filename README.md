@@ -6,6 +6,9 @@
 + [Known issues](#Issues)
 
 ![basal-area](images/ca_basal_area.png)
+
+![pop-density](images/india.png)
+
 *Above Map Shows Biomass of CA*
 
 ## Purpose
