@@ -3,12 +3,11 @@
 + [Requirements](#Requirements)
 + [Libraries](#Libraries-needed)
 + [Resources](#Resource)
-+ [Known issues](#Issues)
-
-![basal-area](images/ca_basal_area.png)
 
 ![pop-density](images/india.png)
 
+
+![basal-area](images/ca_basal_area.png)
 *Above Map Shows Biomass of CA*
 
 ## Purpose
