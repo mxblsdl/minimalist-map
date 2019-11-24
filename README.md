@@ -1,5 +1,5 @@
 # Create Minimalist Line Maps
-+ [Main Objective](#Purpose)
++ [Purpose](#Purpose)
 + [Requirements](#Requirements)
 + [Libraries](#Libraries-needed)
 + [Resources](#Resource)
@@ -19,6 +19,7 @@ To make sylistic maps from any raster data input in reproducable and understanda
 All work is done with R statistical software
 
 ### Requirements
++ Basic familiartity with spatial data and data structures
 + Raster data of something
 + Shapefile of area of interest
 + R software
@@ -36,9 +37,14 @@ All work is done with R statistical software
     library(RColorBrewer) # not needed but nice to play with 
 
 This script can be used to make a map similar to the one above with any input raster. 
-Added functionality to make a gradient raster in teh background.
+Added functionality to make a gradient raster in the background.
 
 ### Resources
+
+Population density used to make the India map can be found [here:](https://sedac.ciesin.columbia.edu/data/set/gpw-v4-population-density-rev11)
+
+A good resource for shapefiles is [Natural Earth](https://www.naturalearthdata.com/)
+***
 
 This workflow is inspired by a blogs postsI found while researching the excellent [velox package](http://philipphunziker.com/velox/extract.html). 
 
