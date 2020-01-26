@@ -66,8 +66,8 @@ make_gradient <- function(deg = 45, n = 100, cols = blues9) {
   )
 }
 ### Set output name
-# name = "Oregon"
-name = "India"
+name = "Oregon"
+# name = "India"
 
 # load raster from given directory
 # Data comes from https://sedac.ciesin.columbia.edu/data/set/gpw-v4-population-density-rev11
@@ -83,13 +83,16 @@ r <-
 
 # various permutations
 # elevation
+r <- dir("../../Fun_work/elevation_maps/raster_data", full.names = T, pattern = ".tif$")
+r
+r <- raster(r[2])
 # r <- raster("../../Fun_work/elevation_maps/raster_data/elevation_wgs.tif")
 
 # select shapefile to clip data to
 # STATES
-# poly <-
-#    read_sf("data/states_21basic/states.shp") %>%
-#     filter(STATE_NAME == name)
+ poly <-
+    read_sf("data/states_21basic/states.shp") %>%
+     filter(STATE_NAME == name)
 # 
 # # OR COUNTIES
 # urban <-
@@ -102,8 +105,8 @@ r <-
 #   filter(CITYNAME == "Portland")
 
 # India
-poly <-
-  read_sf("../../GIS data/India_SHP/INDIA.shp")
+# poly <-
+#   read_sf("../../GIS data/India_SHP/INDIA.shp")
 
 # raster data can be in any projection for this process
 # project shapefile to raster, much faster than projecting the raster
@@ -115,7 +118,7 @@ r <- crop(r, poly)
 r <- mask(r, poly)
 
 # This step will vary depending on the size of the project and resolution of the input data
-while(length(r) > 100000) { # some arbitrary limit
+while(length(r) > 200000) { # some arbitrary limit
   # averaging values to smooth graph
 
   # warning: if your datatable has too many rows you wont be able to plot
@@ -135,26 +138,36 @@ r_dt <- r_dt[,1:3]
 names(r_dt) <- c("x", "y", "value")
 
 # optionally set the highest points a different color
-high_points <- copy(r_dt)
-high_points[, value := ifelse(value > 6200, value, NaN)]
+# high_points <- copy(r_dt)
+# high_points[, value := ifelse(value > 6200, value, NaN)]
 
 # create a background color scheme to match the flag of India
 g <- make_gradient(
   deg = 90, n = 1000, cols = c("#ff9b30", "white", "#0a8902")
 )
 
+# casecadia Colors
+cascadia <- c("#0A15C1", "#FFFFFF", "#FFFFFF",  "#025D00")
+
+g <- make_gradient(
+  deg = 90, n = 1000, cols = cascadia
+)
 #### ggridges method
-fill = "#F8F8FF" # background color
+fill = NA # background color
 line_col = "#333230" # color of ridge lines
+
+#### black and white version
+fill = "black"
+line_col = "white"
 
 ggplot(r_dt, aes(x = x, 
                  y = y,
                  group = y,
                  height = value)) +
-  # add in the background colors
-  annotation_custom(g, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) + 
+# add in the background colors
+ annotation_custom(g, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) + 
     geom_density_ridges(stat = "identity", 
-                      scale = 25, # intensity of spikes
+                      scale = 15, # intensity of spikes
                       fill = fill,
                       color = line_col) +
   # Secondary highlights disabled for now
@@ -174,9 +187,10 @@ ggplot(r_dt, aes(x = x,
                                        colour = fill)) +
   coord_cartesian()
  
-
+name = "cascadia"
 ## output file
 ggsave(paste0(name, ".png"),
-     dpi = 600, # always keep a high dots per inch
-    height = 8, # may need to change based on image
-   width = 8)
+     dpi = 900, # always keep a high dots per inch
+    height = 11, # may need to change based on image
+   width = 17,
+   units = "in")
