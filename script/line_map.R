@@ -1,3 +1,4 @@
+# About -------------------------------
 # Script to produce minimalist line maps of raster data
 
 # inspired by a post found while exploring the velox package (which is also great)
@@ -7,17 +8,23 @@
 # https://www.whackdata.com/2014/08/04/line-graphs-parallel-processing-r/
 # which was also very helpful in getting this to work
 
-library(dplyr) # data manipulation
+# Currently written to download data based on the chosen country
+# See ?getData() for more info on this
+
+# Additional elevation data for the US
+# Data comes from https://sedac.ciesin.columbia.edu/data/set/gpw-v4-population-density-rev11
+
+# Library -------------------------------------
+
 library(raster) # read raster data
 library(ggplot2) # graphing 
 library(sf) # read polygons
 library(ggridges) # achieves ridges look to data
 library(grid) # extra background plotting function
-library(RColorBrewer) # not needed but nice to play with 
 
-# Stop numbers from rendering as scientific notation
-options(scipen = 10)
+# Functions ----------------------
 
+## Helper ----------------------
 # faster raster to dt function
 # Comes from https://gist.github.com/etiennebr/9515738
 as.data.table.raster <- function(x, row.names = NULL, optional = FALSE, xy=FALSE, inmem = canProcessInMemory(x, 2), ...) {
@@ -65,132 +72,73 @@ make_gradient <- function(deg = 45, n = 100, cols = blues9) {
     interpolate = TRUE
   )
 }
-### Set output name
-name = "Oregon"
-# name = "India"
 
-# load raster from given directory
-# Data comes from https://sedac.ciesin.columbia.edu/data/set/gpw-v4-population-density-rev11
-r <- dir("data", full.names = T, pattern = ".tif$")
+## Main functions -------------------------
 
-# list available data
-r
-
-# I have multiple tif files in my data directory
-# select correct one
-r <-
-  raster(r[2])
-
-# various permutations
-# elevation
-r <- dir("../../Fun_work/elevation_maps/raster_data", full.names = T, pattern = ".tif$")
-r
-r <- raster(r[2])
-# r <- raster("../../Fun_work/elevation_maps/raster_data/elevation_wgs.tif")
-
-# select shapefile to clip data to
-# STATES
- poly <-
-    read_sf("data/states_21basic/states.shp") %>%
-     filter(STATE_NAME == name)
-# 
-# # OR COUNTIES
-# urban <-
-#   read_sf("../../GIS data/or_counties/counties.shp") %>%
-#   dplyr::filter(COUNTY == '051')
-# 
-# # Portland city limits
-# poly <-
-#   read_sf("../../GIS data/pdx_City_Boundaries/City_Boundaries.shp") %>%
-#   filter(CITYNAME == "Portland")
-
-# India
-# poly <-
-#   read_sf("../../GIS data/India_SHP/INDIA.shp")
-
-# raster data can be in any projection for this process
-# project shapefile to raster, much faster than projecting the raster
-poly <-
-  st_transform(poly, crs = crs(r))
-
-# crop and mask to area of interest
-r <- crop(r, poly)
-r <- mask(r, poly)
-
-# This step will vary depending on the size of the project and resolution of the input data
-while(length(r) > 200000) { # some arbitrary limit
-  # averaging values to smooth graph
-
-  # warning: if your datatable has too many rows you wont be able to plot
-  # I'm not sure the limit, but around 70,000 rows makes a really detailed end plot
-  # Anything more than this wont really look good
-  # This all depends on the input raster
-    r <- aggregate(r, fact = 2, fun = mean, na.rm = T)
+# see getData('ISO3') for a list of all country codes
+# tol is an arbitrary number to help refine the detail of the line map
+prepare_poly_country <- function(country, tol, path = tempdir()) {
+  # utilizes the getData function to download elevation data for any country
+  # many other options exist for this function
+  # Default downloads to a temp folder
+  r_sub <- getData(name = 'alt', country = country, path = path)
+  
+  # added as USA is a list
+  if(class(r_sub) == "list") {
+    r_sub <- r_sub[[1]]
+    warning("country downloaded as list")
+    }
+  
+  while(length(r_sub) > tol * 10000) { # some arbitrary limit
+    # averaging values to smooth graph
+    # warning: if your datatable has too many rows you wont be able to plot
+    # I'm not sure the limit, but around 70,000 rows makes a really detailed end plot
+    # Anything more than this wont really look good
+    # This all depends on the input raster
+    r_sub <- aggregate(r_sub, fact = 2, fun = mean, na.rm = T)
+  }  
+  return(r_sub)
 }
 
-# to data.table format
-# This can be a very long process without the helper function
-r_dt <-
-  as.data.table.raster(r, xy = T, na.rm = F)
+prepare_dt <- function(raster) {
+  # This can be a very long process without the helper function
+  r_dt <-
+    as.data.table.raster(raster, xy = T, na.rm = F)
+  
+  # Name columns
+  r_dt <- r_dt[,1:3]
+  names(r_dt) <- c("x", "y", "value")  
 
-# Name columns
-r_dt <- r_dt[,1:3]
-names(r_dt) <- c("x", "y", "value")
+  return(r_dt)
+}
 
-# optionally set the highest points a different color
-# high_points <- copy(r_dt)
-# high_points[, value := ifelse(value > 6200, value, NaN)]
-
-# create a background color scheme to match the flag of India
-g <- make_gradient(
-  deg = 90, n = 1000, cols = c("#ff9b30", "white", "#0a8902")
-)
-
-# casecadia Colors
-cascadia <- c("#0A15C1", "#FFFFFF", "#FFFFFF",  "#025D00")
-
-g <- make_gradient(
-  deg = 90, n = 1000, cols = cascadia
-)
-#### ggridges method
-fill = NA # background color
-line_col = "#333230" # color of ridge lines
-
-#### black and white version
-fill = "black"
-line_col = "white"
-
-ggplot(r_dt, aes(x = x, 
-                 y = y,
-                 group = y,
-                 height = value)) +
-# add in the background colors
- annotation_custom(g, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) + 
+prepare_plot <- function(fill, line_col, dt, grad = F ) {
+  g <- 
+    ggplot(dt, aes(x = x, 
+                   y = y,
+                   group = y,
+                   height = value)) +
     geom_density_ridges(stat = "identity", 
-                      scale = 15, # intensity of spikes
-                      fill = fill,
-                      color = line_col) +
-  # Secondary highlights disabled for now
-  # geom_density_ridges(data = high_points, aes(x = x, 
-  #                                             y = y,
-  #                                             group = y,
-  #                                             height = value),
-  #                     stat = "identity",
-  #                     color = c("#FFF68F"),
-  #                     fill = NA,
-  #                     scale = 15,
-  #                     lwd = 1) +
-  theme_void() + # drop all axes, lines, etc...
-  theme(panel.background = element_rect(fill= fill,
-                                        colour= fill),
-        plot.background = element_rect(fill = fill,
-                                       colour = fill)) +
-  coord_cartesian()
- 
-name = "cascadia"
-## output file
-ggsave(paste0(name, ".png"),
-     dpi = 900, # always keep a high dots per inch
-    height = 11, # may need to change based on image
-   width = 17,
-   units = "in")
+                        scale = 15, # intensity of spikes
+                        fill = fill,
+                        color = line_col) +
+    theme_void() + # drop all axes, lines, etc...
+    theme(panel.background = element_rect(fill= fill,
+                                          colour= fill),
+          plot.background = element_rect(fill = fill,
+                                         colour = fill)) +
+    coord_cartesian()
+  
+  if(grad) {
+    g + annotation_custom(grad, xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) 
+  }
+  
+  return(g)
+}
+
+# Example --------------------------------------------
+
+r <- prepare_poly_country("JPN", tol = 14)
+r_dt <- prepare_dt(r)
+prepare_plot(dt = r_dt, fill = "black", line_col = "grey20")
+
