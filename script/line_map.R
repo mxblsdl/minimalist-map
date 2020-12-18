@@ -141,4 +141,3 @@ prepare_plot <- function(fill, line_col, dt, grad = F ) {
 r <- prepare_poly_country("JPN", tol = 14)
 r_dt <- prepare_dt(r)
 prepare_plot(dt = r_dt, fill = "black", line_col = "grey20")
-
